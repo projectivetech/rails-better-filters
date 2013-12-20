@@ -144,7 +144,7 @@ module RailsBetterFilters
     # Returns a list of hashes of bfilter names pointing to their
     # callbacks and :only constraints.
     def finalize_bfilters(_bfilters, _bfilter_opts)
-      # Step 0: Drop unknown :before, :after, :block constraints
+      # Step 1: Drop unknown :before, :after, :block constraints
       #         and convert all :after constraints into :before.
       _bfilter_opts.each do |name, opts|
         [:before, :after, :blocks].each do |s|
