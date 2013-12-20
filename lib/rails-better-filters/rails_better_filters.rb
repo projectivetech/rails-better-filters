@@ -3,17 +3,25 @@ module RailsBetterFilters
     base.extend(ClassMethods)
   end
 
-  def dispatch_better_filters(action)
+  def dispatch_better_filters(action = nil)
+    if !action
+      if defined? params && params[:action]
+        action = params[:action]
+      else
+        raise ArgumentError, 'no action given'
+      end
+    end
+
     self.class.better_filter_chain_each do |name, callback, only|
       if only.empty? || only.include?(action)
-        if callback.is_a?(Symbol)
+        if callback.is_a?(Symbol) && self.respond_to?(callback)
           self.send(callback)
         elsif callback.is_a?(Proc)
           self.instance_eval(&callback)
         elsif callback.respond_to?(:call)
           callback.call
         else
-          raise ArgumentError, "don't know how to call better_filter #{name}"
+          raise ArgumentError, "don't know how to call better_filter #{name} (Callback: #{callback.inspect})"
         end
       end
     end
@@ -210,10 +218,10 @@ module RailsBetterFilters
       opts = opts.dup
       opts[:importance] ||= 0
       opts[:priority] ||= 0
-      opts[:before] ||= []
-      opts[:after] ||= []
-      opts[:blocks] ||= []
-      opts[:only] ||= []
+      [:before, :after, :blocks, :only].each do |k|
+        opts[k] ||= []
+        opts[k] = [opts[k]] if !opts[k].is_a?(Array)
+      end
       opts
     end
 
