@@ -13,8 +13,8 @@ module RailsBetterFilters
     end
 
     self.class.better_filter_chain_each do |name, callback, only|
-      if only.empty? || only.include?(action)
-        if callback.is_a?(Symbol) && self.respond_to?(callback)
+      if only.empty? || only.include?(action.to_sym)
+        if callback.is_a?(Symbol) && self.respond_to?(callback, true)
           self.send(callback)
         elsif callback.is_a?(Proc)
           self.instance_eval(&callback)
@@ -39,11 +39,11 @@ module RailsBetterFilters
       @bfilters ||= {}
 
       if callback
-        @bfilters[name] = callback
+        @bfilters[name.to_sym] = callback
       elsif block_given?
-        @bfilters[name] = block
+        @bfilters[name.to_sym] = block
       else
-        @bfilters[name] = name
+        @bfilters[name.to_sym] = name
       end
     end
 
@@ -53,8 +53,8 @@ module RailsBetterFilters
     # the better).
     def better_filter_opts(name, opts = {})
       @bfilter_opts ||= {}
-      @bfilter_opts[name] ||= []
-      @bfilter_opts[name] << sanitize_opts(opts)
+      @bfilter_opts[name.to_sym] ||= []
+      @bfilter_opts[name.to_sym] << sanitize_opts(opts)
     end
 
     # Get the chain of bfilters for this class. Uses caching for
@@ -144,7 +144,7 @@ module RailsBetterFilters
     # Returns a list of hashes of bfilter names pointing to their
     # callbacks and :only constraints.
     def finalize_bfilters(_bfilters, _bfilter_opts)
-      # Step 1: Drop unknown :before, :after, :block constraints
+      # Step 0: Drop unknown :before, :after, :block constraints
       #         and convert all :after constraints into :before.
       _bfilter_opts.each do |name, opts|
         [:before, :after, :blocks].each do |s|
@@ -152,7 +152,16 @@ module RailsBetterFilters
         end
 
         while (g = opts[:after].shift)
-          _bfilter_opts[g][:before] = name
+          if !_bfilter_opts[g][:before].include?(name)
+            _bfilter_opts[g][:before] << name
+          end
+        end
+      end
+
+      # Step 1: Make sure they're all unique now.
+      _bfilter_opts.each do |_, opts|
+        [:before, :blocks].each do |s|
+          opts[s].uniq!
         end
       end
 
@@ -219,8 +228,12 @@ module RailsBetterFilters
       opts[:importance] ||= 0
       opts[:priority] ||= 0
       [:before, :after, :blocks, :only].each do |k|
-        opts[k] ||= []
-        opts[k] = [opts[k]] if !opts[k].is_a?(Array)
+        if opts[k]
+          opts[k] = [opts[k]] if !opts[k].is_a?(Array)
+          opts[k].map! { |s| s.to_sym }
+        else
+          opts[k] = []
+        end
       end
       opts
     end
