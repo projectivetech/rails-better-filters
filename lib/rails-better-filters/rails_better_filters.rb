@@ -3,17 +3,25 @@ module RailsBetterFilters
     base.extend(ClassMethods)
   end
 
-  def dispatch_better_filters(action)
+  def dispatch_better_filters(action = nil)
+    if !action
+      if defined? params && params[:action]
+        action = params[:action]
+      else
+        raise ArgumentError, 'no action given'
+      end
+    end
+
     self.class.better_filter_chain_each do |name, callback, only|
-      if only.empty? || only.include?(action)
-        if callback.is_a?(Symbol)
+      if only.empty? || only.include?(action.to_sym)
+        if callback.is_a?(Symbol) && self.respond_to?(callback, true)
           self.send(callback)
         elsif callback.is_a?(Proc)
           self.instance_eval(&callback)
         elsif callback.respond_to?(:call)
           callback.call
         else
-          raise ArgumentError, "don't know how to call better_filter #{name}"
+          raise ArgumentError, "don't know how to call better_filter #{name} (Callback: #{callback.inspect})"
         end
       end
     end
@@ -31,11 +39,11 @@ module RailsBetterFilters
       @bfilters ||= {}
 
       if callback
-        @bfilters[name] = callback
+        @bfilters[name.to_sym] = callback
       elsif block_given?
-        @bfilters[name] = block
+        @bfilters[name.to_sym] = block
       else
-        @bfilters[name] = name
+        @bfilters[name.to_sym] = name
       end
     end
 
@@ -45,8 +53,8 @@ module RailsBetterFilters
     # the better).
     def better_filter_opts(name, opts = {})
       @bfilter_opts ||= {}
-      @bfilter_opts[name] ||= []
-      @bfilter_opts[name] << sanitize_opts(opts)
+      @bfilter_opts[name.to_sym] ||= []
+      @bfilter_opts[name.to_sym] << sanitize_opts(opts)
     end
 
     # Get the chain of bfilters for this class. Uses caching for
@@ -144,7 +152,16 @@ module RailsBetterFilters
         end
 
         while (g = opts[:after].shift)
-          _bfilter_opts[g][:before] = name
+          if !_bfilter_opts[g][:before].include?(name)
+            _bfilter_opts[g][:before] << name
+          end
+        end
+      end
+
+      # Step 1: Make sure they're all unique now.
+      _bfilter_opts.each do |_, opts|
+        [:before, :blocks].each do |s|
+          opts[s].uniq!
         end
       end
 
@@ -191,8 +208,8 @@ module RailsBetterFilters
       end
 
       # Now the final shoot-the-bfilter-in-the-head.
-      _bfilters     = _bfilters.reject { |name, _| victims.include?(name) }
-      _bfilter_opts = _bfilter_opts.reject { |name, _| victims.include?(name) }
+      _bfilters.reject! { |name, _| victims.include?(name) }
+      _bfilter_opts.reject! { |name, _| victims.include?(name) }
 
       # Step 3: Sorting! Compared to blocking, this is rather easy.
       #         Topological sort based on the :before values and the :priority.
@@ -210,10 +227,14 @@ module RailsBetterFilters
       opts = opts.dup
       opts[:importance] ||= 0
       opts[:priority] ||= 0
-      opts[:before] ||= []
-      opts[:after] ||= []
-      opts[:blocks] ||= []
-      opts[:only] ||= []
+      [:before, :after, :blocks, :only].each do |k|
+        if opts[k]
+          opts[k] = [opts[k]] if !opts[k].is_a?(Array)
+          opts[k].map! { |s| s.to_sym }
+        else
+          opts[k] = []
+        end
+      end
       opts
     end
 
