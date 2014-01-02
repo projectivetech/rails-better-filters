@@ -208,8 +208,8 @@ module RailsBetterFilters
       end
 
       # Now the final shoot-the-bfilter-in-the-head.
-      _bfilters     = _bfilters.reject { |name, _| victims.include?(name) }
-      _bfilter_opts = _bfilter_opts.reject { |name, _| victims.include?(name) }
+      _bfilters.reject! { |name, _| victims.include?(name) }
+      _bfilter_opts.reject! { |name, _| victims.include?(name) }
 
       # Step 3: Sorting! Compared to blocking, this is rather easy.
       #         Topological sort based on the :before values and the :priority.
