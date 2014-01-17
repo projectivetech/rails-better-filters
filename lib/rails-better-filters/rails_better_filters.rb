@@ -15,11 +15,11 @@ module RailsBetterFilters
     self.class.better_filter_chain_each do |name, callback, only|
       if only.empty? || only.include?(action.to_sym)
         if callback.is_a?(Symbol) && self.respond_to?(callback, true)
-          self.send(callback)
+          return if false == self.send(callback)
         elsif callback.is_a?(Proc)
-          self.instance_eval(&callback)
+          return if false == self.instance_eval(&callback)
         elsif callback.respond_to?(:call)
-          callback.call
+          return if false == callback.call
         else
           raise ArgumentError, "don't know how to call better_filter #{name} (Callback: #{callback.inspect})"
         end
