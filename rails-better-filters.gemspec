@@ -16,5 +16,5 @@ Gem::Specification.new do |s|
   s.require_paths = ['lib']
   s.files         = Dir.glob('lib/**/*.rb')
 
-  s.add_development_dependency 'rspec'
+  s.add_development_dependency 'rspec', '~> 2.14'
 end
